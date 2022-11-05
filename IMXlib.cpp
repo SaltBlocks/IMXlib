@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "IMXlib.h"
 
+/* Used to write incoming data after a network request to a string. */
 size_t writeFunction(void* ptr, size_t size, size_t nmemb, std::string* data) {
 	data->append((char*)ptr, size * nmemb);
 	return size * nmemb;
@@ -30,6 +31,7 @@ bool safe_copy_string(std::string result, char* output, size_t output_size)
 	return canFit;
 }
 
+/* Setup the provided CURL handle for a network request to the given url with the provided data. */
 void setupCURL(CURL* curl, std::string url, std::string method, struct curl_slist* headers, const char* data, std::string& response_string, std::string& header_string)
 {
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
@@ -55,7 +57,23 @@ void setupCURL(CURL* curl, std::string url, std::string method, struct curl_slis
     curl_easy_setopt(curl, CURLOPT_HEADERDATA, &header_string);
 }
 
-char* eth_sign_message(const char* message, const char* priv_key, char* result, int resultSize)
+/* Randomly generates a new ethereum private key. */
+char* eth_generate_key(char* result_buffer, int buffer_size)
+{
+    using CryptoPP::Integer;
+    using CryptoPP::byte;
+
+    CryptoPP::AutoSeededRandomPool prng;
+    CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PrivateKey privateKey;
+    privateKey.Initialize(prng, CryptoPP::ASN1::secp256k1());
+    Integer x = privateKey.GetPrivateExponent();
+    byte key_bytes[32];
+    x.Encode(key_bytes, 32);
+    safe_copy_string(binToHexStr(key_bytes, 32), result_buffer, buffer_size);
+    return result_buffer;
+}
+
+char* eth_sign_message(const char* message, const char* priv_key, char* result_buffer, int buffer_size)
 {
 	/* Define components of CryptoPP we're using for ease of use. */
 	using CryptoPP::Integer;
@@ -72,10 +90,80 @@ char* eth_sign_message(const char* message, const char* priv_key, char* result, 
 	string sig_str = binToHexStr(sigBytes, 32);
 
 	/* Copy the signature into the provided output. */
-	safe_copy_string(sig_str, result, resultSize);
+	safe_copy_string(sig_str, result_buffer, buffer_size);
 
 	/* Return the output. */
-	return result;
+	return result_buffer;
+}
+
+char* imx_register_address(const char* eth_priv_str, char* result_buffer, int buffer_size)
+{
+    /* Define components of CryptoPP we're using for ease of use. */
+    using json = nlohmann::json;
+    using CryptoPP::Integer;
+    using CryptoPP::byte;
+
+    /* Declare byte arrays for the data we will send to IMX.*/
+    byte eth_address_bytes[20];
+    byte stark_address_bytes[32];
+    byte eth_sig_bytes[65];
+    byte stark_sig_bytes[64];
+
+    /* Calculate the stark private key and stark address that corresponds to the provided eth key. */
+    Integer eth_priv = Integer(eth_priv_str);
+    Integer stark_priv = stark::getStarkPriv(eth_priv);
+    Integer eth_address = ethereum::getAddress(eth_priv);
+    Integer stark_address = stark::getAddress(stark_priv);
+    Integer eth_sig = ethereum::signMessage("Only sign this key linking request from Immutable X", eth_priv);
+
+    /* Calculate the signatures needed to link the L1 and L2 wallets. */
+    eth_address.Encode(eth_address_bytes, 20);
+    stark_address.Encode(stark_address_bytes, 32);
+    eth_sig.Encode(eth_sig_bytes, 65);
+    eth_sig_bytes[64] %= 27;
+    stark::signHash(stark::getRegisterHash(eth_address, stark_address), stark_priv).Encode(stark_sig_bytes, 64);
+
+    /* Create json string containing the data for linking the ethereum and stark wallets. */
+    json details = { 
+        { "ether_key",  binToHexStr(eth_address_bytes, 20) },
+        { "stark_key", binToHexStr(stark_address_bytes, 32) },
+        { "stark_signature", binToHexStr(stark_sig_bytes, 64) },
+        { "eth_signature", binToHexStr(eth_sig_bytes, 65) }
+    };
+    std::string linking_str = details.dump();
+
+    /* Define Header. */
+    struct curl_slist* headers = NULL;
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+
+    /* Setup url and data to send. */
+    CURL* curl;
+    curl = curl_easy_init();
+    std::string response_string;
+    std::string header_string;
+    setupCURL(curl, "https://api.x.immutable.com/v1/users", "POST", headers, linking_str.c_str(), response_string, header_string);
+
+    /* Perform web request. */
+    int con = curl_easy_perform(curl);
+
+    /* Cleanup CURL. */
+    curl_easy_cleanup(curl);
+
+    /* Check if the request was successful, if it wasn't, return a json string with an error message. */
+    if (con != 0)
+    {
+        json errorRes = {
+            {"code", "failed_to_reach_server"},
+            {"message", "Failed to connect to IMX, check your internet connection."}
+        };
+        std::string errorStr = errorRes.dump();
+        safe_copy_string(errorStr, result_buffer, buffer_size);
+        return result_buffer;
+    }
+
+    /* Return the message returned by IMX. */
+    safe_copy_string(response_string, result_buffer, buffer_size);
+    return result_buffer;
 }
 
 char* imx_cancel_order(const char* order_id_str, const char* eth_priv_str, char* result_buffer, int buffer_size)
