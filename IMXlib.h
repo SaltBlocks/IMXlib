@@ -4,7 +4,6 @@
 #include "stark.h"
 #include <curl/curl.h>
 #include "nlohmann/json.hpp"
-#include <iostream>
 
 #ifdef IMXLIB_EXPORTS
 #define IMXLIB_API __declspec(dllexport)
