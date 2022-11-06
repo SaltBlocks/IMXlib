@@ -96,9 +96,9 @@ char* eth_sign_message(const char* message, const char* priv_key, char* result_b
 
 	/* Calculate the signature and store in a string. */
 	Integer sig = ethereum::signMessage(message, priv);
-	byte sigBytes[32];
-	sig.Encode(sigBytes, 32);
-	string sig_str = binToHexStr(sigBytes, 32);
+	byte sigBytes[65];
+	sig.Encode(sigBytes, 65);
+	string sig_str = binToHexStr(sigBytes, 65);
 
 	/* Copy the signature into the provided output. */
 	safe_copy_string(sig_str, result_buffer, buffer_size);
