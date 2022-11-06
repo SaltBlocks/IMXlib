@@ -73,6 +73,17 @@ char* eth_generate_key(char* result_buffer, int buffer_size)
     return result_buffer;
 }
 
+char* eth_get_address(const char* eth_priv_str, char* result_buffer, int buffer_size)
+{
+    using CryptoPP::Integer;
+    using CryptoPP::byte;
+
+    byte address[20];
+    ethereum::getAddress(CryptoPP::Integer(eth_priv_str)).Encode(address, 20);
+    safe_copy_string(binToHexStr(address, 20), result_buffer, buffer_size);
+    return result_buffer;
+}
+
 char* eth_sign_message(const char* message, const char* priv_key, char* result_buffer, int buffer_size)
 {
 	/* Define components of CryptoPP we're using for ease of use. */

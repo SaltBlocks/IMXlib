@@ -18,13 +18,16 @@ extern "C" struct Fee
 };
 
 /* Randomly generates a new ethereum private key. */
-extern "C" IMXLIB_API char* eth_generate_key(char* result_buffer, int resultSize);
+extern "C" IMXLIB_API char* eth_generate_key(char* result_buffer, int buffer_size);
+
+/* Calculates the ethereum address associated with the given private key. */
+extern "C" IMXLIB_API char* eth_get_address(const char* eth_priv_str, char* result_buffer, int buffer_size);
+
+/* Calculate the signature message signed with priv_key, the result is loaded into the char buffer result. */
+extern "C" IMXLIB_API char* eth_sign_message(const char* message, const char* priv_key, char* result_buffer, int buffer_size);
 
 /* Registers a wallet with IMX. Only needs to be called once, after that the wallet can be used for trading on IMX. */
 extern "C" IMXLIB_API char* imx_register_address(const char* eth_priv_str, char* result_buffer, int buffer_size);
-
-/* Calculate the signature message signed with priv_key, the result is loaded into the char buffer result. */
-extern "C" IMXLIB_API char* eth_sign_message(const char* message, const char* priv_key, char* result_buffer, int resultSize);
 
 /* Attempts to cancel the order with the provided order id on IMX. */
 extern "C" IMXLIB_API char* imx_cancel_order(const char* order_id_str, const char* eth_priv_str, char* result_buffer, int buffer_size);
