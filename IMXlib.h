@@ -11,6 +11,18 @@
 #define IMXLIB_API __declspec(dllimport)
 #endif
 
+/* Constant token ids used for trading specific tokens. */
+extern "C" IMXLIB_API const char APE[43];
+extern "C" IMXLIB_API const char CMT[43];
+extern "C" IMXLIB_API const char ETH[4];
+extern "C" IMXLIB_API const char GODS[43];
+extern "C" IMXLIB_API const char GOG[43];
+extern "C" IMXLIB_API const char IMX[43];
+extern "C" IMXLIB_API const char OMI[43];
+extern "C" IMXLIB_API const char USDC[43];
+extern "C" IMXLIB_API const char VCO[43];
+extern "C" IMXLIB_API const char VCORE[43];
+
 extern "C" struct Fee
 {
 	char address[43];
