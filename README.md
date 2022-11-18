@@ -216,3 +216,6 @@ output:
 ```
 {"transfer_ids":[152933155]}
 ```
+
+## Disclaimer
+This is **not** an official library for writing application that interact with IMX. Because of this, it is possible that future changes to the IMX api could break its functionality. IMX itself also offers some resources to programmers looking to write code on the IMX platform. However, unlike this library, the official guides focus almost exclusively on making web applications.
