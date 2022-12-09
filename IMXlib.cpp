@@ -343,10 +343,16 @@ char* imx_buy_nft(unsigned long long order_id, const char* nft_address_str, cons
     std::string address_str = binToHexStr(addressBytes, 20);
 
     /* Convert the provided price into a string in the proper format for submitting to IMX. */
-    price *= 10000000000;
+    int decimals = !std::strcmp(token_id_str, USDC) ? 6 : 18;
+    int log10quantum = !std::strcmp(token_id_str, USDC) ? 0 : 8;
+    price *= pow(10, decimals - log10quantum);
     unsigned long long amountULL = static_cast<unsigned long long>(price);
     std::stringstream ss;
-    ss << std::dec << amountULL << "00000000";
+    ss << std::dec << amountULL;
+    for (int i = 0; i < log10quantum; i++)
+    {
+        ss << "0";
+    }
     std::string amount_str = ss.str();
 
     /* Format the json for the token we are looking to spend, if this starts with 0x we'll assume it is an ERC20 token and the token address was provided. */
@@ -355,7 +361,7 @@ char* imx_buy_nft(unsigned long long order_id, const char* nft_address_str, cons
     {
         token_data = {
             { "data", {
-                { "decimals", 18},
+                { "decimals", decimals},
                 { "token_address", token_id_str}
                 }
             },
@@ -365,7 +371,7 @@ char* imx_buy_nft(unsigned long long order_id, const char* nft_address_str, cons
     else
     {
         token_data = {
-            { "data", {{"decimals", 18}}},
+            { "data", {{"decimals", decimals}}},
             { "type", token_id_str}
         };
     }
@@ -588,11 +594,17 @@ char* imx_sell_nft(const char* nft_address_str, const char* nft_id_str, const ch
     }
 
     /* Convert the provided price into a string in the proper format for submitting to IMX. */
-    price *= 100000000;
+    int decimals = !std::strcmp(token_id_str, USDC) ? 6 : 18;
+    int log10quantum = !std::strcmp(token_id_str, USDC) ? 0 : 8;
+    price *= pow(10, decimals - 2 - log10quantum);
     unsigned long long priceULL = static_cast<unsigned long long>(price);
     priceULL *= (100 + fee_percentage);
     std::stringstream ss;
-    ss << std::dec << priceULL << "00000000";
+    ss << std::dec << priceULL;
+    for (int i = 0; i < log10quantum; i++)
+    {
+        ss << "0";
+    }
     std::string price_str = ss.str();
 
     /* Format the json for the token we are looking to receive, if this starts with 0x we'll assume it is an ERC20 token and the token address was provided. */
@@ -601,7 +613,7 @@ char* imx_sell_nft(const char* nft_address_str, const char* nft_id_str, const ch
     {
         token_data = {
             { "data", {
-                { "decimals", 18},
+                { "decimals", decimals},
                 { "token_address", token_id_str}
                 }
             },
@@ -611,7 +623,7 @@ char* imx_sell_nft(const char* nft_address_str, const char* nft_id_str, const ch
     else
     {
         token_data = {
-            { "data", {{"decimals", 18}}},
+            { "data", {{"decimals", decimals}}},
             { "type", token_id_str}
         };
     }
@@ -939,7 +951,9 @@ char* imx_transfer_token(const char* token_id_str, double amount, const char* re
     using json = nlohmann::json;
 
     /* Make sure the price is within the bounds. */
-    unsigned long long max_amount = ULLONG_MAX / 10000000000;
+    int decimals = !std::strcmp(token_id_str, USDC) ? 6 : 18;
+    int log10quantum = !std::strcmp(token_id_str, USDC) ? 0 : 8;
+    unsigned long long max_amount = ULLONG_MAX / pow(10, decimals - log10quantum);
 
     if (amount >= max_amount || amount <= 0)
     {
@@ -958,7 +972,7 @@ char* imx_transfer_token(const char* token_id_str, double amount, const char* re
     {
         token_data = {
             { "data", {
-                { "decimals", 18},
+                { "decimals", decimals},
                 { "token_address", token_id_str}
                 }
             },
@@ -968,16 +982,20 @@ char* imx_transfer_token(const char* token_id_str, double amount, const char* re
     else
     {
         token_data = {
-            { "data", {{"decimals", 18}}},
+            { "data", {{"decimals", decimals}}},
             { "type", token_id_str}
         };
     }
 
-    /* Convert the provided price into a string in the proper format for submitting to IMX. */
-    amount *= 10000000000;
+    /* Convert the provided amount into a string in the proper format for submitting to IMX. */
+    amount *= pow(10, decimals - log10quantum);
     unsigned long long amountULL = static_cast<unsigned long long>(amount);
     std::stringstream ss;
-    ss << std::dec << amountULL << "00000000";
+    ss << std::dec << amountULL;
+    for (int i = 0; i < log10quantum; i++)
+    {
+        ss << "0";
+    }
     std::string amount_str = ss.str();
 
     /* Transfer the token. */
