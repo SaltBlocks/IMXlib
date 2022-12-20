@@ -8,7 +8,7 @@ Command line marketplace for Gods Unchained written in python: [py-gods-unchaine
 Binaries for use on 32 and 64-bit windows can be found in the releases section.
 Exported functions and constants can be found in IMXlib.h and are implemented in IMXlib.cpp.
 Sections below cover the exported functions and how to use them.\
-\a
+\
 The easiest way to use this project is to download the example visual studio project from the [releases section](https://github.com/SaltBlocks/IMXlib/releases). This can also be downloaded directly [here](https://github.com/SaltBlocks/IMXlib/releases/download/v1.0/IMXlib.visual.studio.project.zip).
 If you have visual studio installed and properly setup to compile c++ programs, this project should compile straight away without having to change any settings. The example program is dynamically linked to IMXlib and curl. It can use all the functions covered below. By default it will generate a new ethereum private key and print that together with the address and the signature for the string "Hello World!" every time it is run. 
 
