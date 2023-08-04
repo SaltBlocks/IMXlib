@@ -1,4 +1,8 @@
 #pragma once
+#include "constants.h"
+#include "utils.h"
+#include "IMXapi.h"
+#ifdef IMXLIB_EXPORTS
 #include <string>
 #include <unordered_map>
 #include "ethereum.h"
@@ -6,41 +10,10 @@
 #include <curl/curl.h>
 #include "nlohmann/json.hpp"
 
-#ifdef IMXLIB_EXPORTS
 #define IMXLIB_API __declspec(dllexport)
 #else
 #define IMXLIB_API __declspec(dllimport)
 #endif
-
-/* Message that once signed, is used to calculate the stark key needed to sign transactions on IMX. */
-extern "C" IMXLIB_API const char imx_seed_message[73];
-
-/* Message that once signed, is used as a key for registering an ETH address for trading on IMX. */
-extern "C" IMXLIB_API const char imx_link_message[52];
-
-/* Constant token ids used for trading specific tokens. */
-extern "C" IMXLIB_API const char APE[43];
-extern "C" IMXLIB_API const char CMT[43];
-extern "C" IMXLIB_API const char ETH[4];
-extern "C" IMXLIB_API const char GODS[43];
-extern "C" IMXLIB_API const char GOG[43];
-extern "C" IMXLIB_API const char IMX[43];
-extern "C" IMXLIB_API const char OMI[43];
-extern "C" IMXLIB_API const char USDC[43];
-extern "C" IMXLIB_API const char VCO[43];
-extern "C" IMXLIB_API const char VCORE[43];
-
-extern "C" struct Fee
-{
-	char address[43];
-	int percentage;
-};
-
-extern "C" struct NFT
-{
-	char token_address[43];
-	unsigned long long token_id;
-};
 
 /* Randomly generates a new ethereum private key. */
 extern "C" IMXLIB_API char* eth_generate_key(char* result_buffer, int buffer_size);
@@ -69,7 +42,7 @@ extern "C" IMXLIB_API char* imx_finish_buy_nft(const char* nonce_str, double pri
 extern "C" IMXLIB_API char* imx_buy_nft(const char* order_id_str, double price_limit, Fee * fees, int fee_count, const char* eth_priv_str, char* result_buffer, int buffer_size);
 
 /* Attempts to create a sell order on the IMX orderbook. */
-extern "C" IMXLIB_API char* imx_request_sell_nft(const char* nft_address_str, const char* nft_id_str, const char* token_id_str, double price, Fee* fees, int fee_count, const char* seller_address_str, char* result_buffer, int buffer_size, CURL* curl = NULL);
+extern "C" IMXLIB_API char* imx_request_sell_nft(const char* nft_address_str, const char* nft_id_str, const char* token_id_str, double price, Fee* fees, int fee_count, const char* seller_address_str, char* result_buffer, int buffer_size);
 extern "C" IMXLIB_API char* imx_finish_sell_nft(const char* nonce_str, const char* imx_seed_sig_str, const char* imx_transaction_sig_str, char* result_buffer, int buffer_size);
 extern "C" IMXLIB_API char* imx_sell_nft(const char* nft_address_str, const char* nft_id_str, const char* token_id_str, double price, Fee* fees, int fee_count, const char* eth_priv_str, char* result_buffer, int buffer_size);
 
