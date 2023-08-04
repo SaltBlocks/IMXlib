@@ -282,7 +282,7 @@ std::string imx_trades(nlohmann::json signable_order, double price_limit, Crypto
         curl_easy_cleanup(curl); // Cleanup CURL.
     return order_str;
 }
-std::string imx_signable_order_details(const char* nft_address_str, const char* nft_id_str, const char* token_id_str, double price, nlohmann::json fee_data, const char* seller_address_str, CURL* curl)
+std::string imx_signable_order_details(const char* nft_address_str, const char* nft_id_str, bool is_offer, const char* token_id_str, double price, nlohmann::json fee_data, const char* seller_address_str, CURL* curl)
 {
     using json = nlohmann::json;
     using CryptoPP::Integer;
@@ -320,7 +320,7 @@ std::string imx_signable_order_details(const char* nft_address_str, const char* 
     }
     std::string price_str = ss.str();
 
-    /* Format the json for the token we are looking to receive, if this starts with 0x we'll assume it is an ERC20 token and the token address was provided. */
+    /* Format the json for the token we are looking to use, if this starts with 0x we'll assume it is an ERC20 token and the token address was provided. */
     json token_data;
     if (!strncmp(token_id_str, "0x", 2))
     {
@@ -342,21 +342,22 @@ std::string imx_signable_order_details(const char* nft_address_str, const char* 
     }
 
     /* Create the json string for requesting the order we can sign. */
-    json request_data = {
-        { "token_buy", token_data},
-        { "token_sell", {
+    std::string amount_buy = is_offer ? "1" : price_str;
+    std::string amount_sell = is_offer ? price_str : "1";
+    json token_nft = {
             { "data", {
                 { "token_address", nft_address_str },
                 { "token_id", nft_id_str }
                 }
             },
             { "type", "ERC721" }
-            }
-        },
+    };
+    json request_data = {
+        { "token_buy", is_offer ? token_nft : token_data },
+        { "token_sell", is_offer ? token_data : token_nft },
         { "fees", fee_data },
-        { "amount_buy", price_str },
-        { "amount_sell", "1"},
-        { "expiration_timestamp", 1721854840},
+        { "amount_buy", amount_buy },
+        { "amount_sell", amount_sell },
         { "split_fees", true },
         { "user", seller_address_str}
     };

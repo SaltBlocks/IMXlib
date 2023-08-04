@@ -407,7 +407,7 @@ char* imx_buy_nft(const char* order_id_str, double price_limit, Fee* fees, int f
     return result_buffer;
 }
 
-char* imx_request_sell_nft(const char* nft_address_str, const char* nft_id_str, const char* token_id_str, double price, Fee* fees, int fee_count, const char* seller_address_str, char* result_buffer, int buffer_size)
+char* imx_request_offer_nft(const char* nft_address_str, const char* nft_id_str, const char* token_id_str, double price, Fee* fees, int fee_count, const char* buyer_address_str, char* result_buffer, int buffer_size)
 {
     using json = nlohmann::json;
     using CryptoPP::Integer;
@@ -417,15 +417,84 @@ char* imx_request_sell_nft(const char* nft_address_str, const char* nft_id_str, 
     CURL* curl = curl_easy_init();
 
     json fee_json = imx_get_fee_json(fees, fee_count);
-    std::string response_string = imx_signable_order_details(nft_address_str, nft_id_str, token_id_str, price, fee_json, seller_address_str);
+    std::string response_string = imx_signable_order_details(nft_address_str, nft_id_str, true, token_id_str, price, fee_json, buyer_address_str);
 
+    /* Check if we got the correct response data. Otherwise, return the error given by IMX. */
+    json response_data = json::parse(response_string);
+    if (!response_data.contains("signable_message") || !response_data.contains("nonce"))
+    {
+        safe_copy_string(response_string, result_buffer, buffer_size);
+        return result_buffer;
+    }
+
+    /* Extract the message that we need to sign to submit the order. */
+    response_data["eth_address"] = buyer_address_str;
+    response_data["fee_json"] = fee_json;
+    requested_sales.insert(std::pair<std::string, json>(std::to_string(response_data["nonce"].get<__int64>()), response_data));
+    json result = {
+            {"nonce", response_data["nonce"].get<__int64>()},
+            {"signable_message", response_data["signable_message"].get<std::string>()}
+    };
+
+    safe_copy_string(result.dump(), result_buffer, buffer_size);
+    return result_buffer;
+}
+
+char* imx_offer_nft(const char* nft_address_str, const char* nft_id_str, const char* token_id_str, double price, Fee* fees, int fee_count, const char* eth_priv_str, char* result_buffer, int buffer_size)
+{
+    using json = nlohmann::json;
+    using CryptoPP::Integer;
+    using CryptoPP::byte;
+
+    /* Create CURL instance. */
+    CURL* curl = curl_easy_init();
+
+    /* Get the public address of the user. */
+    Integer eth_priv(eth_priv_str);
+    Integer address = ethereum::getAddress(eth_priv);
+    byte addressBytes[20];
+    address.Encode(addressBytes, 20);
+    std::string address_str = binToHexStr(addressBytes, 20);
+
+    json fee_json = imx_get_fee_json(fees, fee_count);
+    json response_data = json::parse(imx_signable_order_details(nft_address_str, nft_id_str, true, token_id_str, price, fee_json, address_str.c_str(), curl));
+
+    if (!response_data.contains("signable_message"))
+    {
+        safe_copy_string(response_data.dump(), result_buffer, buffer_size);
+        curl_easy_cleanup(curl); // Cleanup CURL.
+        return result_buffer;
+    }
+
+    /* Extract the message that we need to sign to submit the order. */
+    response_data["eth_address"] = address_str;
+    response_data["fee_json"] = fee_json;
+
+    std::string message = response_data["signable_message"].get<std::string>();
+    Integer stark_key = stark::getStarkPriv(eth_priv);
+    Integer imx_signature = ethereum::signMessage(message, eth_priv);
+
+    std::string result = imx_orders(response_data, stark_key, imx_signature, curl);
+
+    safe_copy_string(result, result_buffer, buffer_size);
+    curl_easy_cleanup(curl); // Cleanup CURL.
+    return result_buffer;
+}
+
+char* imx_request_sell_nft(const char* nft_address_str, const char* nft_id_str, const char* token_id_str, double price, Fee* fees, int fee_count, const char* seller_address_str, char* result_buffer, int buffer_size)
+{
+    using json = nlohmann::json;
+    using CryptoPP::Integer;
+    using CryptoPP::byte;
+
+    json fee_json = imx_get_fee_json(fees, fee_count);
+    std::string response_string = imx_signable_order_details(nft_address_str, nft_id_str, false, token_id_str, price, fee_json, seller_address_str);
     
     /* Check if we got the correct response data. Otherwise, return the error given by IMX. */
     json response_data = json::parse(response_string);
     if (!response_data.contains("signable_message") || !response_data.contains("nonce"))
     {
         safe_copy_string(response_string, result_buffer, buffer_size);
-        curl_easy_cleanup(curl); // Cleanup CURL.
         return result_buffer;
     }
     
@@ -439,31 +508,6 @@ char* imx_request_sell_nft(const char* nft_address_str, const char* nft_id_str, 
     };
     
     safe_copy_string(result.dump(), result_buffer, buffer_size);
-    curl_easy_cleanup(curl); // Cleanup CURL.
-    return result_buffer;
-}
-
-char* imx_finish_sell_nft(const char* nonce_str, const char* imx_seed_sig_str, const char* imx_transaction_sig_str, char* result_buffer, int buffer_size)
-{
-    using json = nlohmann::json;
-    using CryptoPP::Integer;
-    using CryptoPP::byte;
-
-    if (requested_sales.find(nonce_str) == requested_sales.end())
-    {
-        json errorRes = {
-            {"code", "request_not_found"},
-            {"message", "Could not find a request for the provided nonce."}
-        };
-        safe_copy_string(errorRes.dump(), result_buffer, buffer_size);
-        return result_buffer;
-    }
-    json signable_order = requested_sales[nonce_str];
-    requested_sales.erase(nonce_str);
-    Integer stark_key = stark::getStarkPriv(Integer(signable_order["eth_address"].get<std::string>().c_str()), Integer(imx_seed_sig_str));
-    std::string result = imx_orders(signable_order, stark_key, Integer(imx_transaction_sig_str));
-
-    safe_copy_string(result, result_buffer, buffer_size);
     return result_buffer;
 }
 
@@ -484,7 +528,7 @@ char* imx_sell_nft(const char* nft_address_str, const char* nft_id_str, const ch
     std::string address_str = binToHexStr(addressBytes, 20);
 
     json fee_json = imx_get_fee_json(fees, fee_count);
-    json response_data = json::parse(imx_signable_order_details(nft_address_str, nft_id_str, token_id_str, price, fee_json, address_str.c_str(), curl));
+    json response_data = json::parse(imx_signable_order_details(nft_address_str, nft_id_str, false, token_id_str, price, fee_json, address_str.c_str(), curl));
 
     if (!response_data.contains("signable_message"))
     {
@@ -505,6 +549,30 @@ char* imx_sell_nft(const char* nft_address_str, const char* nft_id_str, const ch
 
     safe_copy_string(result, result_buffer, buffer_size);
     curl_easy_cleanup(curl); // Cleanup CURL.
+    return result_buffer;
+}
+
+char* imx_finish_sell_or_offer_nft(const char* nonce_str, const char* imx_seed_sig_str, const char* imx_transaction_sig_str, char* result_buffer, int buffer_size)
+{
+    using json = nlohmann::json;
+    using CryptoPP::Integer;
+    using CryptoPP::byte;
+
+    if (requested_sales.find(nonce_str) == requested_sales.end())
+    {
+        json errorRes = {
+            {"code", "request_not_found"},
+            {"message", "Could not find a request for the provided nonce."}
+        };
+        safe_copy_string(errorRes.dump(), result_buffer, buffer_size);
+        return result_buffer;
+    }
+    json signable_order = requested_sales[nonce_str];
+    requested_sales.erase(nonce_str);
+    Integer stark_key = stark::getStarkPriv(Integer(signable_order["eth_address"].get<std::string>().c_str()), Integer(imx_seed_sig_str));
+    std::string result = imx_orders(signable_order, stark_key, Integer(imx_transaction_sig_str));
+
+    safe_copy_string(result, result_buffer, buffer_size);
     return result_buffer;
 }
 

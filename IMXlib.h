@@ -41,10 +41,16 @@ extern "C" IMXLIB_API char* imx_request_buy_nft(const char* order_id_str, const 
 extern "C" IMXLIB_API char* imx_finish_buy_nft(const char* nonce_str, double price_limit, const char* imx_seed_sig_str, const char* imx_transaction_sig_str, char* result_buffer, int buffer_size);
 extern "C" IMXLIB_API char* imx_buy_nft(const char* order_id_str, double price_limit, Fee * fees, int fee_count, const char* eth_priv_str, char* result_buffer, int buffer_size);
 
+/* Attempt to create a buy offer on the IMX orderbook. */
+extern "C" IMXLIB_API char* imx_request_offer_nft(const char* nft_address_str, const char* nft_id_str, const char* token_id_str, double price, Fee* fees, int fee_count, const char* seller_address_str, char* result_buffer, int buffer_size);
+extern "C" IMXLIB_API char* imx_offer_nft(const char* nft_address_str, const char* nft_id_str, const char* token_id_str, double price, Fee* fees, int fee_count, const char* eth_priv_str, char* result_buffer, int buffer_size);
+
 /* Attempts to create a sell order on the IMX orderbook. */
 extern "C" IMXLIB_API char* imx_request_sell_nft(const char* nft_address_str, const char* nft_id_str, const char* token_id_str, double price, Fee* fees, int fee_count, const char* seller_address_str, char* result_buffer, int buffer_size);
-extern "C" IMXLIB_API char* imx_finish_sell_nft(const char* nonce_str, const char* imx_seed_sig_str, const char* imx_transaction_sig_str, char* result_buffer, int buffer_size);
 extern "C" IMXLIB_API char* imx_sell_nft(const char* nft_address_str, const char* nft_id_str, const char* token_id_str, double price, Fee* fees, int fee_count, const char* eth_priv_str, char* result_buffer, int buffer_size);
+
+/* Finish a requested sell order or offer, requires a nonce provided after calling the sell or offer request functions. */
+extern "C" IMXLIB_API char* imx_finish_sell_or_offer_nft(const char* nonce_str, const char* imx_seed_sig_str, const char* imx_transaction_sig_str, char* result_buffer, int buffer_size);
 
 /* Transfers NFTs (ERC721) to a different address. */
 extern "C" IMXLIB_API char* imx_request_transfer_nfts(NFT * nfts, int nft_count, const char* receiver_address, const char* sender_address, char* result_buffer, int buffer_size);
