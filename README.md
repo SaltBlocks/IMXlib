@@ -209,7 +209,7 @@ output:
 ```
 ### imx_get_token_trade_fee
 ```c
-int imx_get_token_trade_fee(const char* token_address_str, const char* token_id, CURL * curl = NULL)
+int imx_get_token_trade_fee(const char* token_address_str, const char* token_id_str)
 ```
 Gets the fee percentage that is added when selling this card on the IMX platform. The fee includes the protocol and royalty fees. Marketplace fees are not included as these aren't known but this will in most cases add at least 1% more to the buy price.
 The token_address is the same for all assets in the collection it is part of. Both the collection address and token id can be found either using the imx api and are also listed on [immutascan](https://immutascan.io/). You can find the card from the example on immutascan [here](https://immutascan.io/address/0xacb3c6a43d15b907e8433077b6d38ae40936fe2c/211653036). The function returns the fee percentage as an integer.

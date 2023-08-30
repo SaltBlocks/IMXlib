@@ -266,7 +266,7 @@ char* imx_cancel_order(const char* order_id_str, const char* eth_priv_str, char*
     return result_buffer;
 }
 
-int imx_get_token_trade_fee(const char* token_address_str, const char* token_id_str)
+double imx_get_token_trade_fee(const char* token_address_str, const char* token_id_str)
 {
     using json = nlohmann::json;
 
@@ -296,15 +296,14 @@ int imx_get_token_trade_fee(const char* token_address_str, const char* token_id_
     json data = json::parse(response_string);
     if (con != 0 || !data.contains("fees"))
     {
-        return -1; // return error
+        return -1.; // return error
     }
-
     /* Calcualte the base fee percentage. */
     json fee_data = data["fees"];
-    int fee_percentage = 0;
+    double fee_percentage = 0.;
     for (int i = 0; i < fee_data.size(); i++)
     {
-        fee_percentage += fee_data[i]["percentage"].get<int>();
+        fee_percentage += fee_data[i]["percentage"].get<double>();
     }
     return fee_percentage; // Most marketplaces will add a 1% taker fee to this percentage, this also excludes the maker marketplace fee.
 }

@@ -34,7 +34,7 @@ extern "C" IMXLIB_API char* imx_finish_cancel_order(const char* order_id_str, co
 extern "C" IMXLIB_API char* imx_cancel_order(const char* order_id_str, const char* eth_priv_str, char* result_buffer, int buffer_size);
 
 /* Returns the minimum fee percentage that needs to be paid when selling the asset provided. Additional fees can be added when creating a sell order with imx_sell_nft. */
-extern "C" IMXLIB_API int imx_get_token_trade_fee(const char* token_address_str, const char* token_id_str);
+extern "C" IMXLIB_API double imx_get_token_trade_fee(const char* token_address_str, const char* token_id_str);
 
 /* Attempts to buy the provided order. The provided "price" argument should not differ significantly from the total price of the order (including fees) or the buy order will be rejected. */
 extern "C" IMXLIB_API char* imx_request_buy_nft(const char* order_id_str, const char* eth_address_str, Fee * fees, int fee_count, char* result_buffer, int buffer_size);

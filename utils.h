@@ -16,7 +16,7 @@
 extern "C" struct Fee
 {
 	char address[43];
-	int percentage;
+	double percentage;
 };
 
 extern "C" struct NFT
