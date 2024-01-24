@@ -12,6 +12,8 @@ Sections below cover the exported functions and how to use them.\
 The easiest way to use this project is to download the example visual studio project from the [releases section](https://github.com/SaltBlocks/IMXlib/releases). This can also be downloaded directly [here](https://github.com/SaltBlocks/IMXlib/releases/download/v2.0/IMXlib.v2.0.visual.studio.project.zip).
 If you have visual studio installed and properly setup to compile c++ programs, this project should compile straight away without having to change any settings. The example program is dynamically linked to IMXlib and curl. It can use all the functions covered below. By default it will generate a new ethereum private key and print that together with the address and the signature for the string "Hello World!" every time it is run. 
 
+ECDSA parameters needed to sign transactions on IMX are stored in the file named stark_curve. This file needs to be in the same directory as the program using the library in order for it to function. The parameters it contains were taken directly from the starkware github page [here](https://github.com/starkware-libs/crypto-cpp/blob/78e3ed8dc7a0901fe6d62f4e99becc6e7936adfd/src/starkware/crypto/elliptic_curve_constants.cc)
+
 Starting from version 2.1, the library is dynamically linked and thus requires the [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170) (Download: [x64](https://aka.ms/vs/17/release/vc_redist.x64.exe)/[x86](https://aka.ms/vs/17/release/vc_redist.x86.exe)) to be installed in order to run.\
 In all likelihood, you won't have to download this as you'll allready have it installed.
 
