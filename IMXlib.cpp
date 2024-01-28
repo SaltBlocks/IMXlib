@@ -6,7 +6,9 @@ std::unordered_map<std::string, nlohmann::json> requested_buys;
 std::unordered_map<std::string, nlohmann::json> requested_sales;
 std::unordered_map<std::string, nlohmann::json> requested_transfers;
 
-/* Randomly generates a new ethereum private key. */
+// Track if the existence of the stark_curve file containing the ECDSA parameters needed for signing transactions has been checked.
+static bool stark_curve_checked = false;
+
 char* eth_generate_key(char* result_buffer, int buffer_size)
 {
     using CryptoPP::Integer;
@@ -62,6 +64,15 @@ char* imx_register_address_presigned(const char* eth_address_str, const char* li
     using json = nlohmann::json;
     using CryptoPP::Integer;
     using CryptoPP::byte;
+
+    /* Make sure we have access to the stark ECDSA curve needed to sign this transaction. */
+    if (!stark_curve_checked) {
+        if (!checkCurveFile(result_buffer, buffer_size))
+        {
+            return result_buffer;
+        }
+        stark_curve_checked = true;
+    }
 
     /* Declare byte arrays for the data we will send to IMX.*/
     byte eth_address_bytes[20];
@@ -131,6 +142,15 @@ char* imx_register_address(const char* eth_priv_str, char* result_buffer, int bu
     using json = nlohmann::json;
     using CryptoPP::Integer;
     using CryptoPP::byte;
+
+    /* Make sure we have access to the stark ECDSA curve needed to sign this transaction. */
+    if (!stark_curve_checked) {
+        if (!checkCurveFile(result_buffer, buffer_size))
+        {
+            return result_buffer;
+        }
+        stark_curve_checked = true;
+    }
 
     /* Declare byte arrays for the data we will send to IMX.*/
     byte eth_address_bytes[20];
@@ -220,6 +240,15 @@ char* imx_finish_cancel_order(const char* order_id_str, const char * eth_address
     using CryptoPP::Integer;
     using CryptoPP::byte;
 
+    /* Make sure we have access to the stark ECDSA curve needed to sign this transaction. */
+    if (!stark_curve_checked) {
+        if (!checkCurveFile(result_buffer, buffer_size))
+        {
+            return result_buffer;
+        }
+        stark_curve_checked = true;
+    }
+
     Integer address(eth_address_str);
     std::string result = imx_delete_order(std::stoi(order_id_str), address, stark::getStarkPriv(address, Integer(imx_seed_sig_str)), Integer(imx_transaction_sig_str));
 
@@ -233,6 +262,15 @@ char* imx_cancel_order(const char* order_id_str, const char* eth_priv_str, char*
     using json = nlohmann::json;
     using CryptoPP::Integer;
     using CryptoPP::byte;
+
+    /* Make sure we have access to the stark ECDSA curve needed to sign this transaction. */
+    if (!stark_curve_checked) {
+        if (!checkCurveFile(result_buffer, buffer_size))
+        {
+            return result_buffer;
+        }
+        stark_curve_checked = true;
+    }
 
     /* Setup CURL. */
     CURL* curl;
@@ -298,7 +336,7 @@ double imx_get_token_trade_fee(const char* token_address_str, const char* token_
     {
         return -1.; // return error
     }
-    /* Calcualte the base fee percentage. */
+    /* Calculate the base fee percentage. */
     json fee_data = data["fees"];
     double fee_percentage = 0.;
     for (int i = 0; i < fee_data.size(); i++)
@@ -308,7 +346,7 @@ double imx_get_token_trade_fee(const char* token_address_str, const char* token_
     return fee_percentage; // Most marketplaces will add a 1% taker fee to this percentage, this also excludes the maker marketplace fee.
 }
 
-char* imx_request_buy_nft(const char* order_id_str, const char* eth_address_str, Fee* fees, int fee_count, char* result_buffer, int buffer_size)
+char* imx_request_buy_order(const char* order_id_str, const char* eth_address_str, Fee* fees, int fee_count, char* result_buffer, int buffer_size)
 {
     using json = nlohmann::json;
     using CryptoPP::Integer;
@@ -329,6 +367,7 @@ char* imx_request_buy_nft(const char* order_id_str, const char* eth_address_str,
     response_data["eth_address"] = eth_address_str;
     response_data["order_id"] = std::stoull(order_id_str);
     response_data["fee_json"] = fee_json;
+    
     requested_buys.insert(std::pair<std::string, json>(std::to_string(response_data["nonce"].get<__int64>()), response_data));
     json result = {
             {"nonce", response_data["nonce"].get<__int64>()},
@@ -338,11 +377,20 @@ char* imx_request_buy_nft(const char* order_id_str, const char* eth_address_str,
     return result_buffer;
 }
 
-char* imx_finish_buy_nft(const char* nonce_str, double price_limit, const char* imx_seed_sig_str, const char* imx_transaction_sig_str, char* result_buffer, int buffer_size)
+char* imx_finish_buy_order(const char* nonce_str, double price_limit, const char* imx_seed_sig_str, const char* imx_transaction_sig_str, char* result_buffer, int buffer_size)
 {
     using json = nlohmann::json;
     using CryptoPP::Integer;
     using CryptoPP::byte;
+
+    /* Make sure we have access to the stark ECDSA curve needed to sign this transaction. */
+    if (!stark_curve_checked) {
+        if (!checkCurveFile(result_buffer, buffer_size))
+        {
+            return result_buffer;
+        }
+        stark_curve_checked = true;
+    }
 
     /* Look for a requested order with the provided nonce. */
     if (requested_buys.find(nonce_str) == requested_buys.end())
@@ -364,11 +412,20 @@ char* imx_finish_buy_nft(const char* nonce_str, double price_limit, const char* 
     return result_buffer;
 }
 
-char* imx_buy_nft(const char* order_id_str, double price_limit, Fee* fees, int fee_count, const char* eth_priv_str, char* result_buffer, int buffer_size)
+char* imx_buy_order(const char* order_id_str, double price_limit, Fee* fees, int fee_count, const char* eth_priv_str, char* result_buffer, int buffer_size)
 {
     using json = nlohmann::json;
     using CryptoPP::Integer;
     using CryptoPP::byte;
+
+    /* Make sure we have access to the stark ECDSA curve needed to sign this transaction. */
+    if (!stark_curve_checked) {
+        if (!checkCurveFile(result_buffer, buffer_size))
+        {
+            return result_buffer;
+        }
+        stark_curve_checked = true;
+    }
 
     /* Create CURL instance. */
     CURL* curl = curl_easy_init();
@@ -387,6 +444,7 @@ char* imx_buy_nft(const char* order_id_str, double price_limit, Fee* fees, int f
     if (!response_data.contains("signable_message") || !response_data.contains("nonce"))
     {
         safe_copy_string(response_data.dump(), result_buffer, buffer_size);
+        curl_easy_cleanup(curl); // Cleanup CURL.
         return result_buffer;
     }
 
@@ -416,13 +474,26 @@ char* imx_request_offer_nft(const char* nft_address_str, const char* nft_id_str,
     CURL* curl = curl_easy_init();
 
     json fee_json = imx_get_fee_json(fees, fee_count);
-    std::string response_string = imx_signable_order_details(nft_address_str, nft_id_str, true, token_id_str, price, fee_json, buyer_address_str);
+    std::string response_string = imx_signable_order_details(nft_address_str, nft_id_str, true, imx_token_details(token_id_str, curl), price, fee_json, buyer_address_str, curl);
+
+    /* Cleanup CURL. */
+    curl_easy_cleanup(curl);
 
     /* Check if we got the correct response data. Otherwise, return the error given by IMX. */
     json response_data = json::parse(response_string);
     if (!response_data.contains("signable_message") || !response_data.contains("nonce"))
     {
         safe_copy_string(response_string, result_buffer, buffer_size);
+        return result_buffer;
+    }
+    if (!response_data.contains("fee_info")) // This sometimes happens if you try to create an offer for an asset that's not on sale.
+    {
+        json errorRes = {
+            {"code", "bad_request"},
+            {"message", "not allowed to create a buy order for an asset without a matching listing (sell order)"}
+        };
+        safe_copy_string(errorRes.dump(), result_buffer, buffer_size);
+        curl_easy_cleanup(curl); // Cleanup CURL.
         return result_buffer;
     }
 
@@ -445,6 +516,15 @@ char* imx_offer_nft(const char* nft_address_str, const char* nft_id_str, const c
     using CryptoPP::Integer;
     using CryptoPP::byte;
 
+    /* Make sure we have access to the stark ECDSA curve needed to sign this transaction. */
+    if (!stark_curve_checked) {
+        if (!checkCurveFile(result_buffer, buffer_size))
+        {
+            return result_buffer;
+        }
+        stark_curve_checked = true;
+    }
+    
     /* Create CURL instance. */
     CURL* curl = curl_easy_init();
 
@@ -456,11 +536,21 @@ char* imx_offer_nft(const char* nft_address_str, const char* nft_id_str, const c
     std::string address_str = binToHexStr(addressBytes, 20);
 
     json fee_json = imx_get_fee_json(fees, fee_count);
-    json response_data = json::parse(imx_signable_order_details(nft_address_str, nft_id_str, true, token_id_str, price, fee_json, address_str.c_str(), curl));
-
+    json response_data = json::parse(imx_signable_order_details(nft_address_str, nft_id_str, true, imx_token_details(token_id_str, curl), price, fee_json, address_str.c_str(), curl));
+    
     if (!response_data.contains("signable_message"))
     {
         safe_copy_string(response_data.dump(), result_buffer, buffer_size);
+        curl_easy_cleanup(curl); // Cleanup CURL.
+        return result_buffer;
+    }
+    if (!response_data.contains("fee_info")) // This sometimes happens if you try to create an offer for an asset that's not on sale.
+    {
+        json errorRes = {
+            {"code", "bad_request"},
+            {"message", "not allowed to create a buy order for an asset without a matching listing (sell order)"}
+        };
+        safe_copy_string(errorRes.dump(), result_buffer, buffer_size);
         curl_easy_cleanup(curl); // Cleanup CURL.
         return result_buffer;
     }
@@ -472,7 +562,6 @@ char* imx_offer_nft(const char* nft_address_str, const char* nft_id_str, const c
     std::string message = response_data["signable_message"].get<std::string>();
     Integer stark_key = stark::getStarkPriv(eth_priv);
     Integer imx_signature = ethereum::signMessage(message, eth_priv);
-
     std::string result = imx_orders(response_data, stark_key, imx_signature, curl);
 
     safe_copy_string(result, result_buffer, buffer_size);
@@ -486,9 +575,15 @@ char* imx_request_sell_nft(const char* nft_address_str, const char* nft_id_str, 
     using CryptoPP::Integer;
     using CryptoPP::byte;
 
+    /* Create CURL instance. */
+    CURL* curl = curl_easy_init();
+
     json fee_json = imx_get_fee_json(fees, fee_count);
-    std::string response_string = imx_signable_order_details(nft_address_str, nft_id_str, false, token_id_str, price, fee_json, seller_address_str);
+    std::string response_string = imx_signable_order_details(nft_address_str, nft_id_str, false, imx_token_details(token_id_str, curl), price, fee_json, seller_address_str, curl);
     
+    /* Cleanup CURL. */
+    curl_easy_cleanup(curl);
+
     /* Check if we got the correct response data. Otherwise, return the error given by IMX. */
     json response_data = json::parse(response_string);
     if (!response_data.contains("signable_message") || !response_data.contains("nonce"))
@@ -516,6 +611,15 @@ char* imx_sell_nft(const char* nft_address_str, const char* nft_id_str, const ch
     using CryptoPP::Integer;
     using CryptoPP::byte;
 
+    /* Make sure we have access to the stark ECDSA curve needed to sign this transaction. */
+    if (!stark_curve_checked) {
+        if (!checkCurveFile(result_buffer, buffer_size))
+        {
+            return result_buffer;
+        }
+        stark_curve_checked = true;
+    }
+
     /* Create CURL instance. */
     CURL* curl = curl_easy_init();
 
@@ -527,7 +631,7 @@ char* imx_sell_nft(const char* nft_address_str, const char* nft_id_str, const ch
     std::string address_str = binToHexStr(addressBytes, 20);
 
     json fee_json = imx_get_fee_json(fees, fee_count);
-    json response_data = json::parse(imx_signable_order_details(nft_address_str, nft_id_str, false, token_id_str, price, fee_json, address_str.c_str(), curl));
+    json response_data = json::parse(imx_signable_order_details(nft_address_str, nft_id_str, false, imx_token_details(token_id_str, curl), price, fee_json, address_str.c_str(), curl));
 
     if (!response_data.contains("signable_message"))
     {
@@ -556,6 +660,15 @@ char* imx_finish_sell_or_offer_nft(const char* nonce_str, const char* imx_seed_s
     using json = nlohmann::json;
     using CryptoPP::Integer;
     using CryptoPP::byte;
+
+    /* Make sure we have access to the stark ECDSA curve needed to sign this transaction. */
+    if (!stark_curve_checked) {
+        if (!checkCurveFile(result_buffer, buffer_size))
+        {
+            return result_buffer;
+        }
+        stark_curve_checked = true;
+    }
 
     if (requested_sales.find(nonce_str) == requested_sales.end())
     {
@@ -626,6 +739,15 @@ char* imx_transfer_nfts(NFT* nfts, int nft_count, const char* receiver_address_s
     using CryptoPP::Integer;
     using CryptoPP::byte;
 
+    /* Make sure we have access to the stark ECDSA curve needed to sign this transaction. */
+    if (!stark_curve_checked) {
+        if (!checkCurveFile(result_buffer, buffer_size))
+        {
+            return result_buffer;
+        }
+        stark_curve_checked = true;
+    }
+
     if (nft_count <= 0)
     {
         json errorRes = {
@@ -685,14 +807,29 @@ char* imx_request_transfer_token(const char* token_id_str, double amount, const 
     using CryptoPP::Integer;
     using CryptoPP::byte;
 
-    json transfer_data = imx_get_send_token_json(token_id_str, amount, receiver_address_str);
-    if (transfer_data.contains("code"))
+    /* Create CURL instance. */
+    CURL* curl = curl_easy_init();
+
+    json token_details = imx_token_details(token_id_str, curl);
+    if (token_details.contains("code"))
     {
-        safe_copy_string(transfer_data.dump(), result_buffer, buffer_size);
+        safe_copy_string(token_details.dump(), result_buffer, buffer_size);
+        curl_easy_cleanup(curl); // Cleanup CURL.
         return result_buffer;
     }
 
-    std::string response_string = imx_signable_transfer_details(transfer_data, sender_address_str);
+    json transfer_data = imx_get_send_token_json(token_details, amount, receiver_address_str);
+    if (transfer_data.contains("code"))
+    {
+        safe_copy_string(transfer_data.dump(), result_buffer, buffer_size);
+        curl_easy_cleanup(curl); // Cleanup CURL.
+        return result_buffer;
+    }
+
+    std::string response_string = imx_signable_transfer_details(transfer_data, sender_address_str, curl);
+
+    /* Cleanup CURL. */
+    curl_easy_cleanup(curl);
 
     /* Check if we got the correct response data. Otherwise, return the error given by IMX. */
     json response_data = json::parse(response_string);
@@ -703,6 +840,8 @@ char* imx_request_transfer_token(const char* token_id_str, double amount, const 
     }
 
     response_data["eth_address"] = sender_address_str;
+    response_data["signable_responses"][0]["quantum"] = token_details["quantum"];
+    
     requested_transfers.insert(std::pair<std::string, json>(std::to_string(response_data["signable_responses"][0]["nonce"].get<__int64>()), response_data));
     json result = {
             {"nonce", response_data["signable_responses"][0]["nonce"].get<__int64>() },
@@ -718,15 +857,33 @@ char* imx_transfer_token(const char* token_id_str, double amount, const char* re
     using CryptoPP::Integer;
     using CryptoPP::byte;
 
-    json transfer_data = imx_get_send_token_json(token_id_str, amount, receiver_address_str);
-    if (transfer_data.contains("code"))
-    {
-        safe_copy_string(transfer_data.dump(), result_buffer, buffer_size);
-        return result_buffer;
+    /* Make sure we have access to the stark ECDSA curve needed to sign this transaction. */
+    if (!stark_curve_checked) {
+        if (!checkCurveFile(result_buffer, buffer_size))
+        {
+            return result_buffer;
+        }
+        stark_curve_checked = true;
     }
 
     /* Create CURL instance. */
     CURL* curl = curl_easy_init();
+
+    json token_details = imx_token_details(token_id_str, curl);
+    if (token_details.contains("code"))
+    {
+        safe_copy_string(token_details.dump(), result_buffer, buffer_size);
+        curl_easy_cleanup(curl); // Cleanup CURL.
+        return result_buffer;
+    }
+
+    json transfer_data = imx_get_send_token_json(token_details, amount, receiver_address_str);
+    if (transfer_data.contains("code"))
+    {
+        safe_copy_string(transfer_data.dump(), result_buffer, buffer_size);
+        curl_easy_cleanup(curl); // Cleanup CURL.
+        return result_buffer;
+    }
 
     /* Get the public address of the user. */
     Integer eth_priv(eth_priv_str);
@@ -747,6 +904,7 @@ char* imx_transfer_token(const char* token_id_str, double amount, const char* re
     }
 
     response_data["eth_address"] = address_str;
+    response_data["signable_responses"][0]["quantum"] = token_details["quantum"];
 
     /* Calculate signatures needed to complete the transfer. */
     std::string message = response_data["signable_message"].get<std::string>();
@@ -764,6 +922,15 @@ char* imx_finish_transfer(const char* nonce_str, const char* imx_seed_sig_str, c
     using json = nlohmann::json;
     using CryptoPP::Integer;
     using CryptoPP::byte;
+
+    /* Make sure we have access to the stark ECDSA curve needed to sign this transaction. */
+    if (!stark_curve_checked) {
+        if (!checkCurveFile(result_buffer, buffer_size))
+        {
+            return result_buffer;
+        }
+        stark_curve_checked = true;
+    }
 
     if (requested_transfers.find(nonce_str) == requested_transfers.end())
     {

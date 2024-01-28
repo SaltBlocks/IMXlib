@@ -107,7 +107,7 @@ output:
 {"tx_hash":""}
 ```
 
-### imx_register_address_presign
+### imx_register_address_presigned
 ```c
 char* imx_register_address_presigned(const char* eth_address_str, const char* link_sig_str, const char* seed_sig_str, char* result_buffer, int buffer_size)
 ```
@@ -147,8 +147,8 @@ Cancels an order placed by the wallet corresponding to the provided private key 
 
 int main()
 {
-    const char key[] = "" // private key goes here, like in previous functions.
-    const char order_id[] = "243671998" // order_id can be retrieved using the imx api.
+    const char key[67] = ""; // private key goes here, like in previous functions.
+    const char order_id[] = "243671998"; // order_id can be retrieved using the imx api.
     char response[1000];
     std::cout << imx_cancel_order(order_id, key, response, 1000) << std::endl;
 }
@@ -197,7 +197,7 @@ int main()
     char response[1000];
     imx_request_cancel_order(order_id, response, 1000);
     
-    const char key[] = ""; // private key goes here, like in previous functions.
+    const char key[67] = ""; // private key goes here, like in previous functions.
     char address[43];
     char imx_cancel_sig[133];
     char imx_seed[133];
@@ -231,11 +231,11 @@ int main()
     std::cout << imx_get_token_trade_fee(collection_address, token_id) << std::endl;
 }
 ```
-### imx_buy_nft
+### imx_buy_order
 ```c
-char* imx_buy_nft(const char* order_id_str, double price_limit, Fee * fees, int fee_count, const char* eth_priv_str, char* result_buffer, int buffer_size)
+char* imx_buy_order(const char* order_id_str, double price_limit, Fee * fees, int fee_count, const char* eth_priv_str, char* result_buffer, int buffer_size)
 ```
-Buys the provided order using the wallet corresponding to the provided private key. The order_id can be retrieved from orders found using the [imx api](https://docs.x.immutable.com/x/reference/#/operations/listOrdersV3). The token_id is the token_address of the asset you are spending (can be found in the order) or simply "ETH" if you are buying using ethereum. The price variable should be equal or greater than the price you will be paying including all fees. If it lower than the actual price, an error message will be returned.
+Buys the provided order using the wallet corresponding to the provided private key. The order_id can be retrieved from orders found using the [imx api](https://docs.x.immutable.com/x/reference/#/operations/listOrdersV3). The token_id is the token_address of the asset you are spending (can be found in the order) or simply "ETH" if you are buying using ethereum. The price variable should be equal or greater than the price you will be paying including all fees, or zero if you want to disable the price check. If price_limit is not zero and the order would cost you more than the set limit, an error message will be returned.
 #### Example
 ```c
 #include <iostream>
@@ -243,21 +243,21 @@ Buys the provided order using the wallet corresponding to the provided private k
 
 int main()
 {
-    const char key[] = ""; // private key goes here, like in previous functions.
+    const char key[67] = ""; // private key goes here, like in previous functions.
     char response[1000];
     Fee user_fee = { "0x216df17ec98bae6047f2c5466162333f1aee23dc", 1 }; // Add a 1% fee to this order paid out to 0x216df17ec98bae6047f2c5466162333f1aee23dc.
-    std::cout << imx_buy_nft("313603208", 0.000035, &user_fee, 1, key, response, 1000) << std::endl; // Attempts to buy order with id 313603208 for at most 0.000035 of the buy currency (ETH)
+    std::cout << imx_buy_order("313603208", 0.000035, &user_fee, 1, key, response, 1000) << std::endl; // Attempts to buy order with id 313603208 for at most 0.000035 of the buy currency (ETH)
 }
 ```
 output:
 ```
 {"trade_id":235339726,"status":""}
 ```
-### imx_request_buy_nft
+### imx_request_buy_order
 ```c
-char* imx_request_buy_nft(const char* order_id_str, const char* eth_address_str, Fee * fees, int fee_count, char* result_buffer, int buffer_size);
+char* imx_request_buy_order(const char* order_id_str, const char* eth_address_str, Fee * fees, int fee_count, char* result_buffer, int buffer_size);
 ```
-Prepares to buy the provided order and returns the message that needs to be signed using the users private key to continue with the buy. Also returns a nonce that can be used with the imx_finish_buy_nft function to finish buying the order once the message is signed.
+Prepares to buy the provided order and returns the message that needs to be signed using the users private key to continue with the buy. Also returns a nonce that can be used with the imx_finish_buy_order function to finish buying the order once the message is signed.
 #### Example
 ```c
 #include <iostream>
@@ -267,16 +267,16 @@ int main()
 {
     char address[43] = "0x216df17ec98bae6047f2c5466162333f1aee23dc";
     char response[1000];
-    std::cout << imx_request_buy_nft("313751181", address, NULL, 0, response, 1000) << std::endl; // Request to buy order with id 313751181.
+    std::cout << imx_request_buy_order("313751181", address, NULL, 0, response, 1000) << std::endl; // Request to buy order with id 313751181.
 }
 ```
 output:
 ```c
 {"nonce":2085808257,"signable_message":"Only sign this request if you’ve initiated an action with Immutable X.\n\nFor internal use:\n011eb1243e49ff17d501fab0e816c0c2848d6684128568e79632a0c584f449fb"}
 ```
-### imx_finish_buy_nft
+### imx_finish_buy_order
 ```c
-char* imx_finish_buy_nft(const char* nonce_str, double price_limit, const char* imx_seed_sig_str, const char* imx_transaction_sig_str, char* result_buffer, int buffer_size)
+char* imx_finish_buy_order(const char* nonce_str, double price_limit, const char* imx_seed_sig_str, const char* imx_transaction_sig_str, char* result_buffer, int buffer_size)
 ```
 Finish a requested buy order. Used to complete orders that need to be signed externally due to the private key not being available. (for example in case a hardware wallet is used).
 #### Example
@@ -292,7 +292,7 @@ int main()
     char private_key[67] = ""; // private key goes here, like in previous functions.
     char address[43] = "0x216df17ec98bae6047f2c5466162333f1aee23dc";
     char response[1000];
-    imx_request_buy_nft("313751181", address, NULL, 0, response, 1000); // Request to buy order with id 313751181.
+    imx_request_buy_order("313751181", address, NULL, 0, response, 1000); // Request to buy order with id 313751181.
     
     json response_data = json::parse(response); // Parse the response.
     std::string nonce = std::to_string(response_data["nonce"].get<__int64>());
@@ -303,7 +303,7 @@ int main()
     eth_sign_message(imx_seed_message, private_key, imx_seed_sig, 133); // Calculate the stark key seed used for signing on IMX.
     eth_sign_message(message.c_str(), private_key, imx_transaction_sig, 133); // Calculate the transaction signature.
 
-    std::cout << imx_finish_buy_nft(nonce.c_str(), 0.000035, imx_seed_sig, imx_transaction_sig, response, 1000) << std::endl;
+    std::cout << imx_finish_buy_order(nonce.c_str(), 0.000035, imx_seed_sig, imx_transaction_sig, response, 1000) << std::endl;
 }
 ```
 output:
@@ -333,7 +333,7 @@ output:
 ```
 ### imx_request_offer_nft
 ```c
-char* imx_request_offer_nft(const char* nft_address_str, const char* nft_id_str, const char* token_id_str, double price, Fee* fees, int fee_count, const char* seller_address_str, char* result_buffer, int buffer_size)
+char* imx_request_offer_nft(const char* nft_address_str, const char* nft_id_str, const char* token_id_str, double price, Fee* fees, int fee_count, const char* buyer_address_str, char* result_buffer, int buffer_size)
 ```
 Request the signable message needed to submit a buy offer to IMX. After signing, the offer can be submitted using the imx_finish_sell_or_offer_nft function.
 #### Example
@@ -364,7 +364,7 @@ Creates a sell order for an nft owned by the wallet corresponding to the provide
 
 int main()
 {
-    const char key[] = ""; // Private key
+    const char key[67] = ""; // Private key
     const char collection_address[] = "0xacb3c6a43d15b907e8433077b6d38ae40936fe2c"; // Gods unchained cards share this address
     const char token_id[] = "211653036"; // ID unique to the card to sell.
     char response[1000];
@@ -447,7 +447,7 @@ Transfer an NFT from the wallet corresponding to the provided private key to a d
 
 int main()
 {
-    const char key[] = ""; // Private key
+    const char key[67] = ""; // Private key
     const char collection_address[] = "0xacb3c6a43d15b907e8433077b6d38ae40936fe2c"; // Gods unchained cards share this address
     const char token_id[] = "211653036";// ID unique to the card to transfer.
     const char address[] = "0x3d248e3370bc947b8d225a680d0e4f57aba9640f";
@@ -537,7 +537,7 @@ Transfers token from the wallet corresponding to the provided private key to a  
 
 int main()
 {
-    const char key[] = ""; // Private key
+    const char key[67] = ""; // Private key
     const char address[] = "0x3d248e3370bc947b8d225a680d0e4f57aba9640f";
     char response[1000];
     std::cout << imx_transfer_token(ETH, 0.000001, address, key, response, 1000) << std::endl; // Transfer 0.000001 ETH.

@@ -1,6 +1,30 @@
 #include "pch.h"
 #include "utils.h"
 
+bool fileExists(std::string filePath) {
+    std::ifstream file(filePath);
+    if (file.good()) {
+        return true;
+    }
+    return false;
+}
+
+bool checkCurveFile(char* output, size_t output_size)
+{
+    using json = nlohmann::json;
+    if (!fileExists("stark_curve"))
+    {
+        json errorRes = {
+        {"code", "stark_curve_missing"},
+        {"message", "Failed to locate stark_curve. This file contains the ECDSA curve parameters needed to sign transactions on IMX. Please make sure it is placed in the directory from which the program is launched."}
+        };
+        std::string errorStr = errorRes.dump();
+        safe_copy_string(errorStr, output, output_size);
+        return false;
+    }
+    return true;
+}
+
 /* Used to write incoming data after a network request to a string. */
 size_t writeFunction(void* ptr, size_t size, size_t nmemb, std::string* data) {
     data->append((char*)ptr, size * nmemb);
@@ -102,14 +126,17 @@ nlohmann::json imx_get_send_nft_json(NFT* nfts, int nft_count, const char* recei
     }
     return nfts_data;
 }
-nlohmann::json imx_get_send_token_json(const char* token_id_str, double amount, const char* receiver)
+nlohmann::json imx_get_send_token_json(nlohmann::json token_details, double amount, const char* receiver)
 {
     using json = nlohmann::json;
-    /* Make sure the price is within the bounds. */
-    int decimals = !std::strcmp(token_id_str, USDC) ? 6 : 18;
-    int log10quantum = !std::strcmp(token_id_str, USDC) ? 0 : 8;
-    unsigned long long max_amount = ULLONG_MAX / pow(10, decimals - log10quantum);
 
+    /* Gather information about the token*/
+    std::string token_address_str = token_details["token_address"].get<std::string>();
+    int decimals = stoi(token_details["decimals"].get<std::string>());
+    int log10quantum = token_details["quantum"].get<std::string>().length() - 1;
+
+    /* Make sure the price is within the bounds. */
+    unsigned long long max_amount = ULLONG_MAX / pow(10, decimals - log10quantum);
     if (amount >= max_amount || amount <= 0)
     {
         json errorRes = {
@@ -132,12 +159,12 @@ nlohmann::json imx_get_send_token_json(const char* token_id_str, double amount, 
 
     /* Create the json containing the token data for the transfer. */
     json token_data;
-    if (!strncmp(token_id_str, "0x", 2))
+    if (token_address_str.length() > 0)
     {
         token_data = {
             { "data", {
                 { "decimals", decimals},
-                { "token_address", token_id_str}
+                { "token_address", token_address_str}
                 }
             },
             { "type", "ERC20"}
@@ -147,7 +174,7 @@ nlohmann::json imx_get_send_token_json(const char* token_id_str, double amount, 
     {
         token_data = {
             { "data", {{"decimals", decimals}}},
-            { "type", token_id_str}
+            { "type", token_details["symbol"].get<std::string>()}
         };
     }
 

@@ -1,6 +1,103 @@
 #include "pch.h"
 #include "IMXapi.h"
 
+/* Storage for information about tokens that are traded on IMX. */
+std::unordered_map<std::string, std::string> token_asset_id_to_address;
+std::unordered_map<std::string, nlohmann::json> token_info;
+
+nlohmann::json imx_token_details(const char* token_id, CURL* curl)
+{
+    using json = nlohmann::json;
+    using CryptoPP::Integer;
+
+    if (token_info.find(token_id) != token_info.end())
+    {
+        return token_info[token_id];
+    }
+    bool create_curl = curl == NULL;
+
+    /* Define Header. */
+    struct curl_slist* headers = NULL;
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+
+    /* Setup url and data to send. */
+    if (create_curl)
+        curl = curl_easy_init();
+
+    /* Create the URL that we can contact to fetch the token details. */
+    std::string request_url = "https://api.x.immutable.com/v1/tokens/";
+    request_url += token_id;
+
+    /* Setup url and data to send. */
+    std::string response_string;
+    std::string header_string;
+    setupCURL(curl, request_url, "GET", headers, NULL, response_string, header_string);
+
+    /* Perform web request. */
+    int con = curl_easy_perform(curl);
+
+    /* Cleanup CURL. */
+    if (create_curl)
+        curl_easy_cleanup(curl);
+
+    /* Check if the request was successful, if it wasn't, return a json string with an error message. */
+    if (con != 0)
+    {
+        json errorRes = {
+            {"code", "failed_to_connect_to_server"},
+            {"message", "Failed to connect to IMX, check your internet connection."}
+        };
+        return errorRes;
+    }
+
+    json result = json::parse(response_string);
+    token_info.insert(std::pair<std::string, json>(std::string(token_id), result));
+    return result;
+}
+nlohmann::json imx_order_details(const char* order_id, CURL* curl)
+{
+    using json = nlohmann::json;
+    using CryptoPP::Integer;
+
+    bool create_curl = curl == NULL;
+
+    /* Define Header. */
+    struct curl_slist* headers = NULL;
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+
+    /* Setup url and data to send. */
+    if (create_curl)
+        curl = curl_easy_init();
+
+    /* Create the URL that we can contact to fetch the order details. */
+    std::string request_url = "https://api.x.immutable.com/v3/orders/";
+    request_url += order_id;
+
+    /* Setup url and data to send. */
+    std::string response_string;
+    std::string header_string;
+    setupCURL(curl, request_url, "GET", headers, NULL, response_string, header_string);
+
+    /* Perform web request. */
+    int con = curl_easy_perform(curl);
+
+    /* Cleanup CURL. */
+    if (create_curl)
+        curl_easy_cleanup(curl);
+
+    /* Check if the request was successful, if it wasn't, return a json string with an error message. */
+    if (con != 0)
+    {
+        json errorRes = {
+            {"code", "failed_to_connect_to_server"},
+            {"message", "Failed to connect to IMX, check your internet connection."}
+        };
+        return errorRes;
+    }
+
+    json result = json::parse(response_string);
+    return result;
+}
 std::string imx_signable_cancel_order_details(int order_id, CURL* curl)
 {
     using json = nlohmann::json;
@@ -8,6 +105,7 @@ std::string imx_signable_cancel_order_details(int order_id, CURL* curl)
     using CryptoPP::byte;
 
     bool create_curl = curl == NULL;
+    
     /* Create json string for requesting order deletion details. */
     json details = { { "order_id", order_id } };
     std::string details_str = details.dump();
@@ -26,6 +124,10 @@ std::string imx_signable_cancel_order_details(int order_id, CURL* curl)
     /* Perform web request. */
     int con = curl_easy_perform(curl);
 
+    /* Cleanup CURL. */
+    if (create_curl)
+        curl_easy_cleanup(curl);
+
     /* Check if the request was successful, if it wasn't, return a json string with an error message. */
     if (con != 0)
     {
@@ -34,14 +136,10 @@ std::string imx_signable_cancel_order_details(int order_id, CURL* curl)
             {"message", "Failed to connect to IMX, check your internet connection."}
         };
         std::string errorStr = errorRes.dump();
-        if (create_curl)
-            curl_easy_cleanup(curl); // Cleanup CURL.
         return errorStr;
     }
 
     /* The request succeeded, return the data from the server. */
-    if (create_curl)
-        curl_easy_cleanup(curl); // Cleanup CURL.
     return response_string;
 }
 std::string imx_delete_order(int order_id, CryptoPP::Integer eth_address, CryptoPP::Integer stark_key, CryptoPP::Integer imx_signature, CURL* curl)
@@ -72,7 +170,6 @@ std::string imx_delete_order(int order_id, CryptoPP::Integer eth_address, Crypto
     stark::signHash(stark::getCancelHash(order_id), stark_key).Encode(cancel_sign, 64);
 
     /* Transform the signatures to strings we can pass to IMX. */
-
     std::string msgAddress = "x-imx-eth-address: ";
     msgAddress += binToHexStr(b_eth_address, 20);
     std::string msgEthSign = "x-imx-eth-signature: ";
@@ -95,8 +192,21 @@ std::string imx_delete_order(int order_id, CryptoPP::Integer eth_address, Crypto
     header_string.clear();
     setupCURL(curl, cancel_url.c_str(), "DELETE", headers, cancelStr.c_str(), response_string, header_string);
 
-    /* Execute the request and cleanup CURL. */
+    /* Execute the request. */
     int con = curl_easy_perform(curl);
+
+    /* Check if the request was successful, if it wasn't, return a json string with an error message. */
+    if (con != 0)
+    {
+        json errorRes = {
+            {"code", "failed_to_reach_server"},
+            {"message", "Failed to connect to IMX, check your internet connection."}
+        };
+        std::string errorStr = errorRes.dump();
+        return errorStr;
+    }
+
+    /* Cleanup CURL. */
     if (create_curl)
         curl_easy_cleanup(curl);
 
@@ -136,12 +246,12 @@ std::string imx_signable_trade_details(unsigned long long order_id_str, const ch
 
     /* Perform web request. */
     int con = curl_easy_perform(curl);
+    
+    /* Cleanup CURL. */
     if (create_curl)
-        curl_easy_cleanup(curl); // Cleanup CURL.
+        curl_easy_cleanup(curl);
 
     /* Check if the request was successful, if it wasn't, return a json string with an error message. */
-
-    /* Check if the connection itself failed. */
     if (con != 0)
     {
         json errorRes = {
@@ -175,28 +285,72 @@ std::string imx_trades(nlohmann::json signable_order, double price_limit, Crypto
     Integer amount_sell(signable_order["amount_sell"].get<std::string>().c_str());
     Integer amount_buy(signable_order["amount_buy"].get<std::string>().c_str());
     Integer amount_fee(signable_order["fee_info"]["fee_limit"].get<std::string>().c_str());
-    Integer token_sell(signable_order["asset_id_sell"].get<std::string>().c_str());
+    std::string asset_id_sell_str = signable_order["asset_id_sell"].get<std::string>();
+    Integer token_sell(asset_id_sell_str.c_str());
     Integer token_buy(signable_order["asset_id_buy"].get<std::string>().c_str());
     Integer token_fee(signable_order["fee_info"]["asset_id"].get<std::string>().c_str());
     Integer nonce = signable_order["nonce"].get<__int64>();
     Integer expiration_timestamp = signable_order["expiration_timestamp"].get<__int64>();
 #pragma warning( pop )
 
+    /* Determine if a new CURL instance should be created. */
+    bool create_curl = curl == NULL;
+
+    /* Define Header. */
+    struct curl_slist* headers = NULL;
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+
+    /* Setup url and data to send. */
+    if (create_curl)
+        curl = curl_easy_init();
+    std::string response_string;
+    std::string header_string;
+
     /* Make sure the price is lower than the maximum provided by the user. */
-    int decimals = !std::strcmp(signable_order["asset_id_sell"].get<std::string>().c_str(), USDC) ? 6 : 10;
-    Integer price_total = amount_sell + amount_fee;
-
-    std::stringstream ss;
-    ss << std::dec << std::fixed << std::setprecision(0) << price_limit * pow(10, decimals);
-    Integer max_val(ss.str().c_str());
-
-    if (price_total > max_val)
+    if (price_limit != 0 && amount_sell != 1)
     {
-        json errorRes = {
-            {"code", "price_limit_exceeded"},
-            {"message", "Buying this order would cost more than the provided price limit."}
-        };
-        return errorRes.dump();
+        json token_details;
+        if (token_asset_id_to_address.find(asset_id_sell_str) != token_asset_id_to_address.end())
+        {
+            token_details = imx_token_details(token_asset_id_to_address[asset_id_sell_str].c_str(), curl);
+        }
+        else
+        {
+            json order_details = imx_order_details(std::to_string(signable_order["order_id"].get<unsigned long long>()).c_str(), curl);
+            if (!order_details.contains("order_id"))
+            {
+                if (create_curl)
+                    curl_easy_cleanup(curl); // Cleanup CURL.
+                return order_details.dump();
+            }
+            std::string currency = order_details["buy"]["type"].get<std::string>() == "ERC20" ? order_details["buy"]["data"]["token_address"].get<std::string>() : order_details["buy"]["type"].get<std::string>();
+            token_asset_id_to_address[asset_id_sell_str] = currency;
+            token_details = imx_token_details(currency.c_str(), curl);
+        }
+        if (token_details.contains("code"))
+        {
+            if (create_curl)
+                curl_easy_cleanup(curl); // Cleanup CURL.
+            return token_details.dump();
+        }
+        int decimals = stoi(token_details["decimals"].get<std::string>());
+        int log10quantum = token_details["quantum"].get<std::string>().length() - 1;
+        Integer price_total = amount_sell + amount_fee;
+
+        std::stringstream ss;
+        ss << std::dec << std::fixed << std::setprecision(0) << price_limit * pow(10, decimals - log10quantum);
+        Integer max_val(ss.str().c_str());
+        
+        if (price_total > max_val)
+        {
+            json errorRes = {
+                {"code", "price_limit_exceeded"},
+                {"message", "Buying this order would cost more than the provided price limit."}
+            };
+            if (create_curl)
+                curl_easy_cleanup(curl); // Cleanup CURL.
+            return errorRes.dump();
+        }
     }
 
     /* Create the order hash and sign it. */
@@ -227,19 +381,6 @@ std::string imx_trades(nlohmann::json signable_order, double price_limit, Crypto
 
     std::string order_str = order_data.dump();
 
-    /* Determine if a new CURL instance should be created. */
-    bool create_curl = curl == NULL;
-
-    /* Define Header. */
-    struct curl_slist* headers = NULL;
-    headers = curl_slist_append(headers, "Content-Type: application/json");
-
-    /* Setup url and data to send. */
-    if (create_curl)
-        curl = curl_easy_init();
-    std::string response_string;
-    std::string header_string;
-
     /* Transform the eth address and message signature to strings we can pass to IMX in the header. Otherwise, the order will be rejected even with a valid stark signature. */
     byte b_eth_address[20];
     eth_address.Encode(b_eth_address, 20);
@@ -259,6 +400,10 @@ std::string imx_trades(nlohmann::json signable_order, double price_limit, Crypto
     /* Perform web request. */
     int con = curl_easy_perform(curl);
 
+    /* Cleanup curl*/
+    if (create_curl)
+        curl_easy_cleanup(curl);
+
     /* Check if the connection itself failed. */
     if (con != 0)
     {
@@ -266,23 +411,13 @@ std::string imx_trades(nlohmann::json signable_order, double price_limit, Crypto
             {"code", "failed_to_connect_to_server"},
             {"message", "Failed to connect to IMX, check your internet connection."}
         };
-        if (create_curl)
-            curl_easy_cleanup(curl); // Cleanup CURL.
         return errorRes.dump();
     }
 
-    /* Cleanup curl*/
-    if (create_curl)
-        curl_easy_cleanup(curl);
-
     /* Copy and return the result */
     return response_string;
-
-    if (create_curl)
-        curl_easy_cleanup(curl); // Cleanup CURL.
-    return order_str;
 }
-std::string imx_signable_order_details(const char* nft_address_str, const char* nft_id_str, bool is_offer, const char* token_id_str, double price, nlohmann::json fee_data, const char* seller_address_str, CURL* curl)
+std::string imx_signable_order_details(const char* nft_address_str, const char* nft_id_str, bool is_offer, nlohmann::json token_details, double price, nlohmann::json fee_data, const char* seller_address_str, CURL* curl)
 {
     using json = nlohmann::json;
     using CryptoPP::Integer;
@@ -293,8 +428,13 @@ std::string imx_signable_order_details(const char* nft_address_str, const char* 
     if (create_curl)
         curl = curl_easy_init();
 
+    /* Gather information about the token */
+    std::string token_address_str = token_details["token_address"].get<std::string>();
+    int decimals = stoi(token_details["decimals"].get<std::string>());
+    int log10quantum = token_details["quantum"].get<std::string>().length() - 1;
+
     /* Make sure the price is within the bounds. */
-    unsigned long long max_price = ULLONG_MAX / 10000000000;
+    unsigned long long max_price = ULLONG_MAX / pow(10, decimals - log10quantum);
 
     if (price >= max_price || price <= 0)
     {
@@ -308,8 +448,6 @@ std::string imx_signable_order_details(const char* nft_address_str, const char* 
     }
 
     /* Convert the provided price into a string in the proper format for submitting to IMX. */
-    int decimals = !std::strcmp(token_id_str, USDC) ? 6 : 18;
-    int log10quantum = !std::strcmp(token_id_str, USDC) ? 0 : 8;
     price *= pow(10, decimals - log10quantum);
     unsigned long long priceULL = static_cast<unsigned long long>(price);
     std::stringstream ss;
@@ -320,14 +458,14 @@ std::string imx_signable_order_details(const char* nft_address_str, const char* 
     }
     std::string price_str = ss.str();
 
-    /* Format the json for the token we are looking to use, if this starts with 0x we'll assume it is an ERC20 token and the token address was provided. */
+    /* Format the json for the token we are looking to use, we'll check if it has an address to determine if it is an ERC20 token. */
     json token_data;
-    if (!strncmp(token_id_str, "0x", 2))
+    if (token_address_str.length() > 0)
     {
         token_data = {
             { "data", {
                 { "decimals", decimals},
-                { "token_address", token_id_str}
+                { "token_address", token_address_str}
                 }
             },
             { "type", "ERC20"}
@@ -337,7 +475,7 @@ std::string imx_signable_order_details(const char* nft_address_str, const char* 
     {
         token_data = {
             { "data", {{"decimals", decimals}}},
-            { "type", token_id_str}
+            { "type", token_details["symbol"].get<std::string>()}
         };
     }
 
@@ -378,22 +516,20 @@ std::string imx_signable_order_details(const char* nft_address_str, const char* 
     /* Perform web request. */
     int con = curl_easy_perform(curl);
 
-    /* Check if the request was successful, if it wasn't, return a json string with an error message. */
+    /* Cleanup CURL. */
+    if (create_curl)
+        curl_easy_cleanup(curl);
 
-    /* Check if the connection itself failed. */
+    /* Check if the request was successful, if it wasn't, return a json string with an error message. */
     if (con != 0)
     {
         json errorRes = {
             {"code", "failed_to_connect_to_server"},
             {"message", "Failed to connect to IMX, check your internet connection."}
         };
-        if (create_curl)
-            curl_easy_cleanup(curl); // Cleanup CURL.
         return errorRes.dump();
     }
 
-    if (create_curl)
-        curl_easy_cleanup(curl); // Cleanup CURL.
     return response_string;
 }
 std::string imx_orders(nlohmann::json signable_order, CryptoPP::Integer stark_key, CryptoPP::Integer imx_signature, CURL* curl)
@@ -408,7 +544,7 @@ std::string imx_orders(nlohmann::json signable_order, CryptoPP::Integer stark_ke
     struct curl_slist* headers = NULL;
     headers = curl_slist_append(headers, "Content-Type: application/json");
 
-    /* Setup url and data to send. */
+    /* Setup curl. */
     if (create_curl)
         curl = curl_easy_init();
     std::string response_string;
@@ -482,6 +618,10 @@ std::string imx_orders(nlohmann::json signable_order, CryptoPP::Integer stark_ke
     /* Perform web request. */
     int con = curl_easy_perform(curl);
 
+    /* Cleanup CURL. */
+    if (create_curl)
+        curl_easy_cleanup(curl);
+
     /* Check if the connection itself failed. */
     if (con != 0)
     {
@@ -489,14 +629,8 @@ std::string imx_orders(nlohmann::json signable_order, CryptoPP::Integer stark_ke
             {"code", "failed_to_connect_to_server"},
             {"message", "Failed to connect to IMX, check your internet connection."}
         };
-        if (create_curl)
-            curl_easy_cleanup(curl); // Cleanup CURL.
         return errorRes.dump();
     }
-
-    /* Cleanup curl*/
-    if (create_curl)
-        curl_easy_cleanup(curl);
 
     /* Copy and return the result */
     return response_string;
@@ -534,22 +668,19 @@ std::string imx_signable_transfer_details(nlohmann::json signable_requests, cons
     /* Perform web request. */
     int con = curl_easy_perform(curl);
 
-    /* Check if the request was successful, if it wasn't, return a json string with an error message. */
+    /* Cleanup CURL. */
+    if (create_curl)
+        curl_easy_cleanup(curl);
 
-    /* Check if the connection itself failed. */
+    /* Check if the request was successful, if it wasn't, return a json string with an error message. */
     if (con != 0)
     {
         json errorRes = {
             {"code", "failed_to_connect_to_server"},
             {"message", "Failed to connect to IMX, check your internet connection."}
         };
-        if (create_curl)
-            curl_easy_cleanup(curl); // Cleanup CURL.
         return errorRes.dump();
     }
-
-    if (create_curl)
-        curl_easy_cleanup(curl); // Cleanup CURL.
 
     return response_string;
 }
@@ -558,7 +689,7 @@ std::string imx_transfers(nlohmann::json signable_responses, CryptoPP::Integer s
     using json = nlohmann::json;
     using CryptoPP::Integer;
     using CryptoPP::byte;
-
+    
     /* Loop through every transfer and sign each individually. Signed transfers are stored in requests_json */
     json requests_json = json::array();
     for (json signable : signable_responses["signable_responses"])
@@ -571,10 +702,9 @@ std::string imx_transfers(nlohmann::json signable_responses, CryptoPP::Integer s
         if (amount != 1)
         {
             /*
-                The amount used to generate the signature hash when transfering a token (ETH/ERC20) needs to be divided by 10 ^ log10quantum.
-                For all currencies except USDC this is 10^8.
-            */
-            int log10quantum = !std::strcmp(token_id_str.c_str(), USDC) ? 0 : 8;
+             *   The amount used to generate the signature hash when transfering a token (ETH/ERC20) needs to be divided by the quantum
+             */
+            int log10quantum = signable["quantum"].get<std::string>().length() - 1;
             amount /= pow(10, log10quantum);
         }
         Integer nonce = signable["nonce"].get<__int64>();
@@ -652,7 +782,7 @@ std::string imx_transfers(nlohmann::json signable_responses, CryptoPP::Integer s
     /* Perform web request. */
     int con = curl_easy_perform(curl);
 
-    /* Cleanup curl*/
+    /* Cleanup curl. */
     if (create_curl)
         curl_easy_cleanup(curl);
 
