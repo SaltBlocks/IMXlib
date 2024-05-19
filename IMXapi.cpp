@@ -9,7 +9,6 @@ nlohmann::json imx_token_details(const char* token_id, CURL* curl)
 {
     using json = nlohmann::json;
     using CryptoPP::Integer;
-
     if (token_info.find(token_id) != token_info.end())
     {
         return token_info[token_id];
@@ -19,11 +18,9 @@ nlohmann::json imx_token_details(const char* token_id, CURL* curl)
     /* Define Header. */
     struct curl_slist* headers = NULL;
     headers = curl_slist_append(headers, "Content-Type: application/json");
-
     /* Setup url and data to send. */
     if (create_curl)
         curl = curl_easy_init();
-
     /* Create the URL that we can contact to fetch the token details. */
     std::string request_url = "https://api.x.immutable.com/v1/tokens/";
     request_url += token_id;
@@ -32,16 +29,14 @@ nlohmann::json imx_token_details(const char* token_id, CURL* curl)
     std::string response_string;
     std::string header_string;
     setupCURL(curl, request_url, "GET", headers, NULL, response_string, header_string);
-
     /* Perform web request. */
     int con = curl_easy_perform(curl);
-
     /* Cleanup CURL. */
     if (create_curl)
         curl_easy_cleanup(curl);
 
     /* Check if the request was successful, if it wasn't, return a json string with an error message. */
-    if (con != 0)
+    if (con != 0 || response_string.length() == 0)
     {
         json errorRes = {
             {"code", "failed_to_connect_to_server"},
@@ -86,7 +81,7 @@ nlohmann::json imx_order_details(const char* order_id, CURL* curl)
         curl_easy_cleanup(curl);
 
     /* Check if the request was successful, if it wasn't, return a json string with an error message. */
-    if (con != 0)
+    if (con != 0 || response_string.length() == 0)
     {
         json errorRes = {
             {"code", "failed_to_connect_to_server"},
@@ -129,7 +124,7 @@ std::string imx_signable_cancel_order_details(int order_id, CURL* curl)
         curl_easy_cleanup(curl);
 
     /* Check if the request was successful, if it wasn't, return a json string with an error message. */
-    if (con != 0)
+    if (con != 0 || response_string.length() == 0)
     {
         json errorRes = {
             {"code", "failed_to_reach_server"},
@@ -196,7 +191,7 @@ std::string imx_delete_order(int order_id, CryptoPP::Integer eth_address, Crypto
     int con = curl_easy_perform(curl);
 
     /* Check if the request was successful, if it wasn't, return a json string with an error message. */
-    if (con != 0)
+    if (con != 0 || response_string.length() == 0)
     {
         json errorRes = {
             {"code", "failed_to_reach_server"},
@@ -252,7 +247,7 @@ std::string imx_signable_trade_details(unsigned long long order_id_str, const ch
         curl_easy_cleanup(curl);
 
     /* Check if the request was successful, if it wasn't, return a json string with an error message. */
-    if (con != 0)
+    if (con != 0 || response_string.length() == 0)
     {
         json errorRes = {
             {"code", "failed_to_connect_to_server"},
@@ -405,7 +400,7 @@ std::string imx_trades(nlohmann::json signable_order, double price_limit, Crypto
         curl_easy_cleanup(curl);
 
     /* Check if the connection itself failed. */
-    if (con != 0)
+    if (con != 0 || response_string.length() == 0)
     {
         json errorRes = {
             {"code", "failed_to_connect_to_server"},
@@ -521,7 +516,7 @@ std::string imx_signable_order_details(const char* nft_address_str, const char* 
         curl_easy_cleanup(curl);
 
     /* Check if the request was successful, if it wasn't, return a json string with an error message. */
-    if (con != 0)
+    if (con != 0 || response_string.length() == 0)
     {
         json errorRes = {
             {"code", "failed_to_connect_to_server"},
@@ -529,7 +524,6 @@ std::string imx_signable_order_details(const char* nft_address_str, const char* 
         };
         return errorRes.dump();
     }
-
     return response_string;
 }
 std::string imx_orders(nlohmann::json signable_order, CryptoPP::Integer stark_key, CryptoPP::Integer imx_signature, CURL* curl)
@@ -623,7 +617,7 @@ std::string imx_orders(nlohmann::json signable_order, CryptoPP::Integer stark_ke
         curl_easy_cleanup(curl);
 
     /* Check if the connection itself failed. */
-    if (con != 0)
+    if (con != 0 || response_string.length() == 0)
     {
         json errorRes = {
             {"code", "failed_to_connect_to_server"},
@@ -673,7 +667,7 @@ std::string imx_signable_transfer_details(nlohmann::json signable_requests, cons
         curl_easy_cleanup(curl);
 
     /* Check if the request was successful, if it wasn't, return a json string with an error message. */
-    if (con != 0)
+    if (con != 0 || response_string.length() == 0)
     {
         json errorRes = {
             {"code", "failed_to_connect_to_server"},
@@ -787,7 +781,7 @@ std::string imx_transfers(nlohmann::json signable_responses, CryptoPP::Integer s
         curl_easy_cleanup(curl);
 
     /* Check if the connection itself failed. */
-    if (con != 0)
+    if (con != 0 || response_string.length() == 0)
     {
         json errorRes = {
             {"code", "failed_to_connect_to_server"},

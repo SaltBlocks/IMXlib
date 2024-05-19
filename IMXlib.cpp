@@ -120,7 +120,7 @@ char* imx_register_address_presigned(const char* eth_address_str, const char* li
     curl_easy_cleanup(curl);
 
     /* Check if the request was successful, if it wasn't, return a json string with an error message. */
-    if (con != 0)
+    if (con != 0 || response_string.length() == 0)
     {
         json errorRes = {
             {"code", "failed_to_reach_server"},
@@ -199,7 +199,7 @@ char* imx_register_address(const char* eth_priv_str, char* result_buffer, int bu
     curl_easy_cleanup(curl);
 
     /* Check if the request was successful, if it wasn't, return a json string with an error message. */
-    if (con != 0)
+    if (con != 0 || response_string.length() == 0)
     {
         json errorRes = {
             {"code", "failed_to_reach_server"},
@@ -331,11 +331,12 @@ double imx_get_token_trade_fee(const char* token_address_str, const char* token_
     curl_easy_cleanup(curl);
 
     /* Check if the request was successful, if it wasn't, return -1 to indicate an error. */
+    if (con != 0 || response_string.length() == 0)
+        return -1;
     json data = json::parse(response_string);
-    if (con != 0 || !data.contains("fees"))
-    {
+    if (!data.contains("fees"))
         return -1.; // return error
-    }
+
     /* Calculate the base fee percentage. */
     json fee_data = data["fees"];
     double fee_percentage = 0.;
@@ -474,7 +475,13 @@ char* imx_request_offer_nft(const char* nft_address_str, const char* nft_id_str,
     CURL* curl = curl_easy_init();
 
     json fee_json = imx_get_fee_json(fees, fee_count);
-    std::string response_string = imx_signable_order_details(nft_address_str, nft_id_str, true, imx_token_details(token_id_str, curl), price, fee_json, buyer_address_str, curl);
+    json token_details = imx_token_details(token_id_str, curl);
+    if (token_details.contains("code"))
+    {
+        safe_copy_string(token_details.dump(), result_buffer, buffer_size);
+        return result_buffer;
+    }
+    std::string response_string = imx_signable_order_details(nft_address_str, nft_id_str, true, token_details, price, fee_json, buyer_address_str, curl);
 
     /* Cleanup CURL. */
     curl_easy_cleanup(curl);
@@ -536,7 +543,14 @@ char* imx_offer_nft(const char* nft_address_str, const char* nft_id_str, const c
     std::string address_str = binToHexStr(addressBytes, 20);
 
     json fee_json = imx_get_fee_json(fees, fee_count);
-    json response_data = json::parse(imx_signable_order_details(nft_address_str, nft_id_str, true, imx_token_details(token_id_str, curl), price, fee_json, address_str.c_str(), curl));
+    json token_details = imx_token_details(token_id_str, curl);
+    if (token_details.contains("code"))
+    {
+        safe_copy_string(token_details.dump(), result_buffer, buffer_size);
+        return result_buffer;
+    }
+
+    json response_data = json::parse(imx_signable_order_details(nft_address_str, nft_id_str, true, token_details, price, fee_json, address_str.c_str(), curl));
     
     if (!response_data.contains("signable_message"))
     {
@@ -579,7 +593,13 @@ char* imx_request_sell_nft(const char* nft_address_str, const char* nft_id_str, 
     CURL* curl = curl_easy_init();
 
     json fee_json = imx_get_fee_json(fees, fee_count);
-    std::string response_string = imx_signable_order_details(nft_address_str, nft_id_str, false, imx_token_details(token_id_str, curl), price, fee_json, seller_address_str, curl);
+    json token_details = imx_token_details(token_id_str, curl);
+    if (token_details.contains("code"))
+    {
+        safe_copy_string(token_details.dump(), result_buffer, buffer_size);
+        return result_buffer;
+    }
+    std::string response_string = imx_signable_order_details(nft_address_str, nft_id_str, false, token_details, price, fee_json, seller_address_str, curl);
     
     /* Cleanup CURL. */
     curl_easy_cleanup(curl);
@@ -631,7 +651,13 @@ char* imx_sell_nft(const char* nft_address_str, const char* nft_id_str, const ch
     std::string address_str = binToHexStr(addressBytes, 20);
 
     json fee_json = imx_get_fee_json(fees, fee_count);
-    json response_data = json::parse(imx_signable_order_details(nft_address_str, nft_id_str, false, imx_token_details(token_id_str, curl), price, fee_json, address_str.c_str(), curl));
+    json token_details = imx_token_details(token_id_str, curl);
+    if (token_details.contains("code"))
+    {
+        safe_copy_string(token_details.dump(), result_buffer, buffer_size);
+        return result_buffer;
+    }
+    json response_data = json::parse(imx_signable_order_details(nft_address_str, nft_id_str, false, token_details, price, fee_json, address_str.c_str(), curl));
 
     if (!response_data.contains("signable_message"))
     {
